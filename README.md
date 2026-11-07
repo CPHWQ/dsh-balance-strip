@@ -40,7 +40,15 @@
 - DeepSeek Harness `0.2.1-rc.2` 至 `0.2.x`（写进 `engines.dsh`，不兼容的版本会拒绝加载而不是半加载）。
 - 已登录 DeepSeek 账户，**或** profile 里配了 `DEEPSEEK_API_KEY` 凭据。两者都没有时会显示 `余额 —`，其它读数照常。
 
-从 npm 安装：
+从 GitHub 安装（尚未发布到 npm 前用这条）：
+
+```sh
+dsh plugin --profile web add github:CPHWQ/dsh-balance-strip
+```
+
+包是纯 JavaScript，没有构建步骤，因此不需要 `allowBuilds` 授权。若你的网络访问 GitHub 需要代理，先给 git 配好代理（`git config --global http.proxy http://127.0.0.1:7897`，端口按你自己的客户端改）再安装。
+
+从 npm 安装（发布后可用）：
 
 ```sh
 dsh plugin --profile web add dsh-balance-strip
