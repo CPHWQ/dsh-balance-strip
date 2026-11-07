@@ -353,13 +353,19 @@
     var el = composerHit()
     if (!el) return 0
     var pick = el.getBoundingClientRect()
+    // 只往上走一层：输入框自身宽度，到「第一个比它宽的祖先」就是那圈带内边距的圆角盒子。
+    // 再多走一层就会拿到盒子外面的列容器（左右有 margin），右边缘会多出几个像素——
+    // 用户截图里量的就是这一档：胶囊比输入框宽出约 6px。
     var right = pick.right
     var node = el.parentElement
     var guard = 0
     while (node && node !== document.body && guard++ < 6) {
       var rr = node.getBoundingClientRect()
-      if (rr.width - pick.width > 140) break // 已经不是同一块输入框，往上就是整栏了，停
-      if (rr.width >= pick.width && rr.right > right) right = rr.right
+      if (rr.width > pick.width + 0.5) {
+        // 一下子宽出 200px 以上，说明这层已经是整栏了，输入框就是最外层可见盒子
+        right = rr.width - pick.width > 200 ? pick.right : rr.right
+        break
+      }
       node = node.parentElement
     }
     return right
