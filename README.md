@@ -1,4 +1,4 @@
-﻿# 余额胶囊 · dsh-balance-strip
+# 余额胶囊 · dsh-balance-strip
 
 在 DeepSeek Harness 会话页顶部标签行右侧，常驻一枚小胶囊：**余额、今日已用（估算）、峰/谷**，一眼看完，不用点、不用悬停、不用打开别的面板。界面语言是中文时显示汉字，其它语言自动换成英文。
 
@@ -42,19 +42,21 @@
 - DeepSeek Harness `0.2.1-rc.2` 至 `0.2.x`（写进 `engines.dsh`，不兼容的版本会拒绝加载而不是半加载）。
 - 已登录 DeepSeek 账户，**或** profile 里配了 `DEEPSEEK_API_KEY` 凭据。两者都没有时会显示 `余额 —`，其它读数照常。
 
-从 GitHub 安装（尚未发布到 npm 前用这条）：
+从 npm 安装：
+
+```sh
+dsh plugin --profile web add dsh-balance-strip
+```
+
+包是纯 JavaScript，没有构建步骤，因此不需要 `allowBuilds` 授权。
+
+从 GitHub 安装（npm 装不上时的备选，适合跟着主干走）：
 
 ```sh
 dsh plugin --profile web add github:CPHWQ/dsh-balance-strip
 ```
 
-包是纯 JavaScript，没有构建步骤，因此不需要 `allowBuilds` 授权。若你的网络访问 GitHub 需要代理，先给 git 配好代理（`git config --global http.proxy http://127.0.0.1:7897`，端口按你自己的客户端改）再安装。
-
-从 npm 安装（发布后可用）：
-
-```sh
-dsh plugin --profile web add dsh-balance-strip
-```
+若你的网络访问 GitHub 需要代理，先给 git 配好代理（`git config --global http.proxy http://127.0.0.1:7897`，端口按你自己的客户端改）再安装。
 
 从本地 checkout 安装：
 
