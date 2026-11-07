@@ -1,6 +1,6 @@
 {
   "name": "dsh-balance-strip",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "在 DSH 会话页顶部标签行右侧常驻一枚余额胶囊：余额、今日已用（按余额下降估算）、峰谷时段与对应时间区间，一眼可见，不用点击。",
   "type": "module",
   "main": "lib/index.js",

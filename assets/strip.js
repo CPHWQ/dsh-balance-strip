@@ -97,7 +97,10 @@
       '--on-fg:#e8837a;',
       'font-family:"Segoe UI Variable Text","Segoe UI","Microsoft YaHei",system-ui,sans-serif;',
       'line-height:1;white-space:nowrap;user-select:none;pointer-events:none;',
-      'z-index:2147483000;-webkit-font-smoothing:antialiased;',
+      // 只压在「当前操作层」之上，不跟弹窗抢：桌面端的设置、授权、确认框动辄 1000+，
+      // 早年写 2147483000 会浮在设置弹窗上面，看着就是"盖不住"。40 足够高过标签行和滚动内容，
+      // 又低到任何正常浮层都能压住它——重叠部分被弹窗盖住，而不是让胶囊自己消失。
+      'z-index:40;-webkit-font-smoothing:antialiased;',
       'transition:background-color .25s ease,border-color .25s ease,box-shadow .25s ease;}',
       '#dsh-strip-bar.is-light{--k:rgba(15,18,22,.48);--v:rgba(15,18,22,.90);--u:rgba(15,18,22,.58);',
       '--s:rgba(15,18,22,.14);--e:rgba(15,18,22,.32);',
