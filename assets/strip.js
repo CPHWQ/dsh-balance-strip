@@ -1,4 +1,4 @@
-// dsh-balance-strip —— 顶部标题栏右侧的一行余额读数（无底色、不贯通、只读）
+﻿// dsh-balance-strip —— 顶部标题栏右侧的一行余额读数（无底色、不贯通、只读）
 //
 // 三个细节：
 //  ① 自带热替换：每次轮询拿到后端给的 build（strip.js 的 mtime），一旦和当前运行的不一样，
@@ -35,8 +35,8 @@
     return /^zh/i.test(String(l)) ? 'zh' : 'en'
   })()
   var T = LANG === 'zh'
-    ? { bal: '余额', today: '今日', est: '约', on: '峰', off: '谷', sync: '同步中', retry: '待恢复' }
-    : { bal: 'Balance', today: 'Today', est: '≈', on: 'Peak', off: 'Off-peak', sync: 'Syncing', retry: 'Retrying' }
+    ? { bal: '余额', today: '今日', est: '估', on: '峰', off: '谷', sync: '同步中', retry: '待恢复' }
+    : { bal: 'Balance', today: 'Today', est: 'est.', on: 'Peak', off: 'Off-peak', sync: 'Syncing', retry: 'Retrying' }
 
   var dead = false
   var bar = null
@@ -90,7 +90,7 @@
       '#dsh-strip-bar .dshs-v{font-size:1em;font-weight:600;letter-spacing:.01em;',
       'font-variant-numeric:tabular-nums;color:var(--v);}',
       '#dsh-strip-bar .dshs-v.is-used{font-weight:500;color:var(--u);}',
-      '#dsh-strip-bar .dshs-est{font-size:.86em;font-weight:400;color:var(--e);margin-right:-.16em;}',
+      '#dsh-strip-bar .dshs-est{font-size:.66em;font-weight:400;color:var(--e);margin-left:.12em;transform:translateY(-.30em);}',
       '#dsh-strip-bar .dshs-sep{width:1px;height:.88em;border-radius:1px;',
       'background:var(--s);align-self:center;}',
       // 峰 / 谷：常驻，不再自带底色（底色交给整枚胶囊），所以字号可以放大一档
@@ -125,10 +125,10 @@
 
     var g2 = make('span', 'dshs-grp')
     g2.appendChild(make('span', 'dshs-k', T.today))
-    // 「约」在数字前面，紧贴数字：今日 约 ¥1.42
-    g2.appendChild(make('span', 'dshs-est', T.est))
     usedEl = make('span', 'dshs-v is-used', '—')
     g2.appendChild(usedEl)
+    // 「估」跟在数字后面，做上标小字：今日 ¥1.42 估
+    g2.appendChild(make('span', 'dshs-est', T.est))
 
     dotEl = make('span', 'dshs-dot')
     peakEl = make('span', 'dshs-peak', T.on)
