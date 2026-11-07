@@ -45,6 +45,47 @@
   var fails = 0
   var timer = null
   var inflight = false
+  // 上一次成功读到的数字（localStorage）。作用只有一个：宿主刚起来、第一份数据还没到时，
+  // 先显示上次的真实数值，而不是「余额 —　同步中」这种跟实际对不上的占位字。
+  var LS_KEY = 'dshs-last'
+
+  function todayKeyLocal() {
+    try {
+      return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10)
+    } catch (e) {
+      return ''
+    }
+  }
+
+  function readMemo() {
+    try {
+      var raw = localStorage.getItem(LS_KEY)
+      if (!raw) return null
+      var m = JSON.parse(raw)
+      // 跨天就不认：昨天的余额套在今天的「今日已用」上会自相矛盾
+      if (!m || m.d !== todayKeyLocal()) return null
+      if (typeof m.balance !== 'number' || typeof m.todayUsed !== 'number') return null
+      return { ok: true, balance: m.balance, todayUsed: m.todayUsed, currency: m.currency || 'CNY', _memo: true }
+    } catch (e) {
+      return null
+    }
+  }
+
+  function saveMemo(src) {
+    try {
+      if (!src || typeof src.balance !== 'number') return
+      localStorage.setItem(
+        LS_KEY,
+        JSON.stringify({
+          d: todayKeyLocal(),
+          balance: src.balance,
+          todayUsed: typeof src.todayUsed === 'number' ? src.todayUsed : 0,
+          currency: src.currency || 'CNY',
+          at: Date.now(),
+        }),
+      )
+    } catch (e) {}
+  }
   // 热替换时旧实例要能把自己挂的事件/计时器/观察器全撤掉，否则每换一次就多一份
   var disposers = []
   var intervals = []
@@ -129,6 +170,8 @@
       '#dsh-strip-bar .dshs-dot{width:.3em;height:.3em;border-radius:50%;background:var(--off-fg);',
       'align-self:center;margin-right:-.36em;display:none;}',
       '#dsh-strip-bar.is-warn .dshs-dot{display:block;}',
+      // 冷启动时显示的是上次读数：整体压暗一档，配合「同步中」两个字，跟新鲜数据区分开
+      '#dsh-strip-bar.is-stale{opacity:.58;}',
       '#dsh-strip-bar .dshs-msg{font-size:.78em;font-weight:500;letter-spacing:.04em;',
       'color:var(--k);align-self:center;}',
     ].join('')
@@ -172,6 +215,17 @@
     bar.appendChild(msgEl)
     document.body.appendChild(bar)
     syncTheme()
+
+    // 先把上次读到的数字摆上去，第一份数据回来再覆盖：
+    // 冷启动那几百毫秒里宁可是「旧数字 + 同步中」，也不要摆一个和实际不符的破折号。
+    var memo = readMemo()
+    if (memo) {
+      CUR = String(memo.currency || 'CNY').toUpperCase()
+      balEl.textContent = money(memo.balance)
+      usedEl.textContent = money(memo.todayUsed)
+      bar.classList.add('is-stale')
+      msgEl.textContent = T.sync
+    }
     return bar
   }
 
@@ -536,11 +590,17 @@
     if (ok) {
       lastGood = data
       fails = 0
+      saveMemo(data)
     } else {
       fails++
     }
 
     var src = ok ? data : lastGood
+    var stale = false
+    if (!src) {
+      src = readMemo()
+      if (src) stale = true
+    }
     if (src && src.currency) CUR = String(src.currency).toUpperCase()
     balEl.textContent = src ? money(src.balance) : '—'
     usedEl.textContent = src ? money(src.todayUsed) : '—'
@@ -551,13 +611,18 @@
     bar.classList.toggle('is-off', off)
     bar.classList.toggle('is-peak', !off)
 
-    bar.classList.toggle('is-warn', !ok)
+    bar.classList.toggle('is-stale', stale)
+    bar.classList.toggle('is-warn', !ok && !stale)
     if (ok) {
       msgEl.textContent = ''
       bar.removeAttribute('title')
+    } else if (stale) {
+      // 有上次的数字就先给数字，只补一句「同步中」，别摆一个和实际不一致的破折号
+      msgEl.textContent = fails < 3 ? T.sync : T.retry
+      bar.setAttribute('title', 'dsh-balance-strip：' + reason(data && data.error))
     } else {
-      // 冷启动：只写「同步中」，不把报错怼到标题栏上
-      msgEl.textContent = !src ? (fails < 2 ? T.sync : T.retry) : ''
+      // 冷启动且没有任何旧值：只写「同步中」，不把报错怼到标题栏上
+      msgEl.textContent = fails < 2 ? T.sync : T.retry
       bar.setAttribute('title', 'dsh-balance-strip：' + reason(data && data.error))
     }
     place()
