@@ -4,7 +4,10 @@
 
 > 非官方社区插件，与 DeepSeek 官方无隶属关系，也未获其背书。
 
-源码与问题反馈：<https://github.com/CPHWQ/dsh-balance-strip>
+[![npm](https://img.shields.io/npm/v/dsh-balance-strip.svg)](https://www.npmjs.com/package/dsh-balance-strip)
+[![license](https://img.shields.io/npm/l/dsh-balance-strip.svg)](LICENSE)
+
+源码与问题反馈：<https://github.com/CPHWQ/dsh-balance-strip> · npm：<https://www.npmjs.com/package/dsh-balance-strip>
 
 ## 预览
 
