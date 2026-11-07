@@ -1,0 +1,56 @@
+{
+  "name": "dsh-balance-strip",
+  "version": "0.1.0",
+  "description": "在 DSH 会话页顶部标签行右侧常驻一枚余额胶囊：余额、今日已用（按余额下降估算）、峰谷时段与对应时间区间，一眼可见，不用点击。",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "icon": "./icon.png",
+  "files": [
+    "lib",
+    "assets",
+    "cordis.patch.yml",
+    "icon.png",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "deepseek",
+    "balance",
+    "wallet",
+    "statusbar",
+    "web-ui",
+    "cordis"
+  ],
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0",
+    "dsh": ">=0.2.1-rc.2 <0.3.0"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CPHWQ/dsh-balance-strip.git"
+  },
+  "homepage": "https://github.com/CPHWQ/dsh-balance-strip#readme",
+  "bugs": {
+    "url": "https://github.com/CPHWQ/dsh-balance-strip/issues"
+  },
+  "author": "CPHWQ",
+  "license": "MIT",
+  "scripts": {
+    "check": "node --check lib/index.js && node --check assets/strip.js",
+    "pack:check": "pnpm pack --dry-run"
+  }
+}

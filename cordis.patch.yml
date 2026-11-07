@@ -1,0 +1,8 @@
+# dsh-balance-strip —— DSH bundle patch
+#
+# 把「窗口底部常驻余额细条」插入 Web profile 的配置树。
+# 安装（桌面端必须走宿主自带的插件安装器，CLI 拒绝写 desktop profile）：
+#   plugin_manager install_bundle  target=link:<本目录绝对路径>
+- insert:
+    - id: dsh-balance-strip
+      name: dsh-balance-strip
