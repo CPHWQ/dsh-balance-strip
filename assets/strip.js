@@ -171,7 +171,7 @@
       'align-self:center;margin-right:-.36em;display:none;}',
       '#dsh-strip-bar.is-warn .dshs-dot{display:block;}',
       // 冷启动时显示的是上次读数：整体压暗一档，配合「同步中」两个字，跟新鲜数据区分开
-      '#dsh-strip-bar.is-stale{opacity:.58;}',
+      '#dsh-strip-bar.is-stale{opacity:.66;}',
       '#dsh-strip-bar .dshs-msg{font-size:.78em;font-weight:500;letter-spacing:.04em;',
       'color:var(--k);align-self:center;}',
     ].join('')
@@ -224,7 +224,6 @@
       balEl.textContent = money(memo.balance)
       usedEl.textContent = money(memo.todayUsed)
       bar.classList.add('is-stale')
-      msgEl.textContent = T.sync
     }
     return bar
   }
@@ -617,12 +616,12 @@
       msgEl.textContent = ''
       bar.removeAttribute('title')
     } else if (stale) {
-      // 有上次的数字就先给数字，只补一句「同步中」，别摆一个和实际不一致的破折号
-      msgEl.textContent = fails < 3 ? T.sync : T.retry
+      // 有上次的数字就给数字，不再挂「同步中」这类字：压暗本身已经是提示
+      msgEl.textContent = ''
       bar.setAttribute('title', 'dsh-balance-strip：' + reason(data && data.error))
     } else {
-      // 冷启动且没有任何旧值：只写「同步中」，不把报错怼到标题栏上
-      msgEl.textContent = fails < 2 ? T.sync : T.retry
+      // 冷启动且没有任何旧值：只留破折号，报错原因收进 title
+      msgEl.textContent = ''
       bar.setAttribute('title', 'dsh-balance-strip：' + reason(data && data.error))
     }
     place()
