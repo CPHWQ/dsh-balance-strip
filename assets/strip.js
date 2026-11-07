@@ -349,20 +349,46 @@
 
   // 用户说的「对话框右侧」，就是底部输入框那圈圆角容器的右边缘。
   // 消息栏的容器可能比它宽（左右有内边距），所以直接量输入框本身往上 6 层内最宽的那层。
+  // 输入框那一圈「看得见的圆角盒子」：从输入框往上找第一个「圆角 ≥10px 且有不透明底色或描边」的祖先。
+  // 靠 DOM 层数猜（多走一层 / 少走一层）在不同窗口状态下会落到不同容器，右边缘就会飘；
+  // 圆角是这圈盒子的视觉特征，换个界面状态也还是它。
+  var boxCache = { el: null, box: null }
+  function composerBox() {
+    var el = composerHit()
+    if (!el) return null
+    if (boxCache.el === el && boxCache.box && boxCache.box.isConnected !== false) return boxCache.box
+    var node = el
+    var found = null
+    var guard = 0
+    while (node && node !== document.body && guard++ < 8) {
+      var cs = getComputedStyle(node)
+      var rad = parseFloat(cs.borderTopLeftRadius) || 0
+      var bg = cs.backgroundColor || ''
+      var bw = parseFloat(cs.borderTopWidth) || 0
+      var opaque = !!bg && bg !== 'transparent' && !/,\s*0\)$/.test(bg)
+      if (rad >= 10 && (opaque || bw > 0)) { found = node; break }
+      node = node.parentElement
+    }
+    boxCache = { el: el, box: found }
+    return found
+  }
+
   function composerRight() {
     var el = composerHit()
     if (!el) return 0
+    var box = composerBox()
+    if (box) {
+      var rb = box.getBoundingClientRect()
+      if (rb.width > 120 && rb.right > 0) return rb.right
+    }
     var pick = el.getBoundingClientRect()
-    // 只往上走一层：输入框自身宽度，到「第一个比它宽的祖先」就是那圈带内边距的圆角盒子。
-    // 再多走一层就会拿到盒子外面的列容器（左右有 margin），右边缘会多出几个像素——
-    // 用户截图里量的就是这一档：胶囊比输入框宽出约 6px。
+    // 兜底：只往上走一层，第一个比输入框宽的祖先就是那圈带内边距的圆角盒子。
     var right = pick.right
     var node = el.parentElement
     var guard = 0
     while (node && node !== document.body && guard++ < 6) {
       var rr = node.getBoundingClientRect()
       if (rr.width > pick.width + 0.5) {
-        // 一下子宽出 200px 以上，说明这层已经是整栏了，输入框就是最外层可见盒子
         right = rr.width - pick.width > 200 ? pick.right : rr.right
         break
       }
