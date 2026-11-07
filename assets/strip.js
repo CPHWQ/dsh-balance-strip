@@ -134,10 +134,11 @@
     peakEl = make('span', 'dshs-peak', T.on)
     msgEl = make('span', 'dshs-msg', '')
 
+    // 顺序：今日 → 余额 → 峰/谷（今日在前，余额在后）
     bar.appendChild(dotEl)
-    bar.appendChild(g1)
-    bar.appendChild(make('span', 'dshs-sep'))
     bar.appendChild(g2)
+    bar.appendChild(make('span', 'dshs-sep'))
+    bar.appendChild(g1)
     bar.appendChild(peakEl)
     bar.appendChild(msgEl)
     document.body.appendChild(bar)
@@ -294,6 +295,32 @@
     return best || window.innerWidth - 6
   }
 
+  // 用户说的「对话框右侧」，就是底部输入框那圈圆角容器的右边缘。
+  // 消息栏的容器可能比它宽（左右有内边距），所以直接量输入框本身往上 6 层内最宽的那层。
+  function composerRight() {
+    if (!document.querySelectorAll) return 0
+    var list = document.querySelectorAll('textarea,[contenteditable="true"],[contenteditable=""]')
+    var pick = null
+    var el = null
+    var i
+    for (i = 0; i < list.length; i++) {
+      var r = list[i].getBoundingClientRect()
+      if (r.width < 220 || r.height < 14 || r.bottom < 0) continue
+      if (!pick || r.width * r.height > pick.width * pick.height) { pick = r; el = list[i] }
+    }
+    if (!pick || !el) return 0
+    var right = pick.right
+    var node = el.parentElement
+    var guard = 0
+    while (node && node !== document.body && guard++ < 6) {
+      var rr = node.getBoundingClientRect()
+      if (rr.width - pick.width > 140) break // 已经不是同一块输入框，往上就是整栏了，停
+      if (rr.width >= pick.width && rr.right > right) right = rr.right
+      node = node.parentElement
+    }
+    return right
+  }
+
   function place() {
     if (!bar || dead) return
     var a = findTabAnchor()
@@ -310,8 +337,8 @@
     bar.style.fontSize = (isFinite(fs) && fs > 8 ? fs : 13) + 'px'
     var bw = bar.offsetWidth
     var bh = bar.offsetHeight
-    // 右边缘强制贴住会话栏右边界，EDGE 固定为 0
-    var right = paneRightFrom(a.el)
+    // 右边缘优先贴输入框（对话框）的右边缘；找不到输入框再退回方法栏容器
+    var right = composerRight() || paneRightFrom(a.el)
     bar.style.left = Math.max(2, Math.min(right, window.innerWidth - 2) - bw) + 'px'
     bar.style.top = Math.max(1, a.rect.top + a.rect.height / 2 - bh / 2) + 'px'
     bar.style.right = 'auto'
