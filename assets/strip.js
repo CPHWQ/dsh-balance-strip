@@ -379,12 +379,18 @@
     // 字号跟标签一致；先设字号再量宽度，否则量到的是上一次的尺寸
     var fs = parseFloat(getComputedStyle(a.el).fontSize)
     bar.style.fontSize = (isFinite(fs) && fs > 8 ? fs : 13) + 'px'
-    var bw = bar.offsetWidth
-    var bh = bar.offsetHeight
+    // 用 getBoundingClientRect 而不是 offsetWidth：后者会四舍五入成整数，
+    // 每次金额位数变化就能看出 1～2px 的错位。这里取亚像素值，边缘才能真对齐。
+    var br = bar.getBoundingClientRect()
+    var bw = br.width
+    var bh = br.height
     // 右边缘优先贴输入框（对话框）的右边缘；找不到输入框再退回方法栏容器
     var right = composerRight() || paneRightFrom(a.el)
-    bar.style.left = Math.max(2, Math.min(right, window.innerWidth - 2) - bw) + 'px'
-    bar.style.top = Math.max(1, a.rect.top + a.rect.height / 2 - bh / 2) + 'px'
+    var x = right - bw
+    if (x < 0) x = 0
+    if (x + bw > window.innerWidth) x = window.innerWidth - bw
+    bar.style.left = x.toFixed(2) + 'px'
+    bar.style.top = Math.max(1, a.rect.top + a.rect.height / 2 - bh / 2).toFixed(2) + 'px'
     bar.style.right = 'auto'
     bar.style.bottom = 'auto'
   }
@@ -426,6 +432,9 @@
   function watchLayout() {
     if (dead || typeof ResizeObserver !== 'function') return
     var targets = []
+    // 胶囊自己也盯着：金额位数一变它的宽度就变，宽度变了就要重新钉右边缘，
+    // 否则文字变长时右边缘会往外顶出几个像素。
+    if (bar) targets.push(bar)
     var a = findTabAnchor()
     if (a && a.el) {
       targets.push(a.el)
@@ -568,6 +577,10 @@
     if (!ensureBar()) return false
     place()
     watchLayout()
+    // 字体是晚一步加载的：加载完字宽会变，右边缘要重新钉一次
+    if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
+      document.fonts.ready.then(function () { schedulePlace() }).catch(function () {})
+    }
     poll()
     // 唤醒、切回窗口、改窗口大小时都补一次，避免数字停在几分钟前
     on(document, 'visibilitychange', function () {
