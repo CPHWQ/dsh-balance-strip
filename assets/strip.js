@@ -1,4 +1,4 @@
-﻿// dsh-balance-strip —— 顶部标题栏右侧的一行余额读数（无底色、不贯通、只读）
+// dsh-balance-strip —— 顶部标题栏右侧的一行余额读数（无底色、不贯通、只读）
 //
 // 三个细节：
 //  ① 自带热替换：每次轮询拿到后端给的 build（strip.js 的 mtime），一旦和当前运行的不一样，
@@ -45,6 +45,32 @@
   var fails = 0
   var timer = null
   var inflight = false
+  // 热替换时旧实例要能把自己挂的事件/计时器/观察器全撤掉，否则每换一次就多一份
+  var disposers = []
+  var intervals = []
+
+  function on(target, type, fn, opts) {
+    if (!target || !target.addEventListener) return
+    target.addEventListener(type, fn, opts)
+    disposers.push(function () { target.removeEventListener(type, fn, opts) })
+  }
+
+  function every(ms, fn) {
+    var id = setInterval(fn, ms)
+    intervals.push(id)
+    return id
+  }
+
+  function teardown() {
+    var i
+    for (i = 0; i < disposers.length; i++) { try { disposers[i]() } catch (e) {} }
+    disposers = []
+    for (i = 0; i < intervals.length; i++) clearInterval(intervals[i])
+    intervals = []
+    if (typeof ro !== 'undefined' && ro) { try { ro.disconnect() } catch (e) {} }
+    if (timer) clearTimeout(timer)
+    timer = null
+  }
 
   function make(tag, cls, text) {
     var n = document.createElement(tag)
@@ -295,10 +321,9 @@
     return best || window.innerWidth - 6
   }
 
-  // 用户说的「对话框右侧」，就是底部输入框那圈圆角容器的右边缘。
-  // 消息栏的容器可能比它宽（左右有内边距），所以直接量输入框本身往上 6 层内最宽的那层。
-  function composerRight() {
-    if (!document.querySelectorAll) return 0
+  // 底部输入框（「对话框」）本体：textarea 或可编辑区里面积最大的那个
+  function composerHit() {
+    if (!document.querySelectorAll) return null
     var list = document.querySelectorAll('textarea,[contenteditable="true"],[contenteditable=""]')
     var pick = null
     var el = null
@@ -308,7 +333,15 @@
       if (r.width < 220 || r.height < 14 || r.bottom < 0) continue
       if (!pick || r.width * r.height > pick.width * pick.height) { pick = r; el = list[i] }
     }
-    if (!pick || !el) return 0
+    return el
+  }
+
+  // 用户说的「对话框右侧」，就是底部输入框那圈圆角容器的右边缘。
+  // 消息栏的容器可能比它宽（左右有内边距），所以直接量输入框本身往上 6 层内最宽的那层。
+  function composerRight() {
+    var el = composerHit()
+    if (!el) return 0
+    var pick = el.getBoundingClientRect()
     var right = pick.right
     var node = el.parentElement
     var guard = 0
@@ -345,6 +378,66 @@
     bar.style.bottom = 'auto'
   }
 
+  var placeQueued = false
+  function schedulePlace() {
+    if (dead || placeQueued) return
+    placeQueued = true
+    var run = function () {
+      placeQueued = false
+      place()
+    }
+    if (window.requestAnimationFrame) window.requestAnimationFrame(run)
+    else setTimeout(run, 16)
+  }
+
+  // 面板抽屉、窗口吸附这类变化带过渡动画，只量一帧会停在中间态。
+  // 这里在 0.5 秒内连续跟帧，动画一停自然结束（最多 30 帧，约 3% 的单核占用）。
+  function settle() {
+    if (dead) return
+    watchLayout()
+    var n = 0
+    var tick = function () {
+      place()
+      if (++n < 30 && !dead) {
+        if (window.requestAnimationFrame) window.requestAnimationFrame(tick)
+        else setTimeout(tick, 16)
+      }
+    }
+    if (window.requestAnimationFrame) window.requestAnimationFrame(tick)
+    else setTimeout(tick, 16)
+  }
+
+  // 只监听会影响胶囊位置的几个盒子：标签行、输入框、以及它们各自往上两层。
+  // 侧栏收起/展开、右侧面板开合、输入框由单行变多行，都会让这些盒子改变尺寸——
+  // 那类变化不触发 window.resize，只靠 20 秒轮询会一直停在旧位置。
+  var ro = null
+  var watched = []
+  function watchLayout() {
+    if (dead || typeof ResizeObserver !== 'function') return
+    var targets = []
+    var a = findTabAnchor()
+    if (a && a.el) {
+      targets.push(a.el)
+      if (a.el.parentElement) targets.push(a.el.parentElement)
+      if (a.el.parentElement && a.el.parentElement.parentElement) targets.push(a.el.parentElement.parentElement)
+    }
+    var hit = composerHit()
+    if (hit) {
+      targets.push(hit)
+      if (hit.parentElement) targets.push(hit.parentElement)
+      if (hit.parentElement && hit.parentElement.parentElement) targets.push(hit.parentElement.parentElement)
+    }
+    var same = targets.length === watched.length && targets.length > 0
+    for (var i = 0; same && i < targets.length; i++) if (targets[i] !== watched[i]) same = false
+    if (same) return
+    if (ro) ro.disconnect()
+    watched = targets
+    if (!targets.length) { ro = null; return }
+    ro = new ResizeObserver(function () { schedulePlace() })
+    for (var j = 0; j < targets.length; j++) ro.observe(targets[j])
+  }
+
+
   function reason(err) {
     var s = String(err || '')
     if (s === 'starting') return '正在取数'
@@ -360,8 +453,7 @@
 
   function swap(next) {
     dead = true
-    if (timer) clearTimeout(timer)
-    timer = null
+    teardown()
     // 拆干净，才能让新的自己重新装上
     var old = document.getElementById('dsh-strip-bar')
     if (old && old.parentNode) old.parentNode.removeChild(old)
@@ -463,21 +555,26 @@
     if (dead) return false
     if (!ensureBar()) return false
     place()
+    watchLayout()
     poll()
     // 唤醒、切回窗口、改窗口大小时都补一次，避免数字停在几分钟前
-    document.addEventListener('visibilitychange', function () {
-      if (!document.hidden) { syncTheme(); place(); poll() }
+    on(document, 'visibilitychange', function () {
+      if (!document.hidden) { syncTheme(); settle(); poll() }
     })
-    window.addEventListener('focus', function () { syncTheme(); place() })
-    // 最大化/还原/拖边缘：先按 rAF 跟上布局，再补一次轮询
-    window.addEventListener('resize', function () {
+    on(window, 'focus', function () { syncTheme(); settle() })
+    // 最大化/还原/拖边缘：先跟几帧布局，再补一次轮询
+    on(window, 'resize', function () {
       syncTheme()
-      if (window.requestAnimationFrame) window.requestAnimationFrame(function () { place() })
-      else place()
+      settle()
       poll()
     })
+    // 输入框变高（多行）、面板开合也会改变胶囊该在的位置，resize 事件抓不到，靠 ResizeObserver 兜
+    on(window, 'orientationchange', function () { settle() })
+    if (window.visualViewport) on(window.visualViewport, 'resize', function () { schedulePlace() })
     // 窗口从失焦到聚焦时标题栏底色会变，兜底每 5 秒量一次
-    setInterval(syncTheme, 5000)
+    every(5000, syncTheme)
+    // 布局元素可能被整块替换（切页面、换会话），隔一阵重新挂一次监听
+    every(5000, watchLayout)
     return true
   }
 
