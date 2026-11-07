@@ -376,22 +376,19 @@
       bar.style.bottom = BOTTOM + 'px'
       return
     }
-    // 字号跟标签一致；先设字号再量宽度，否则量到的是上一次的尺寸
+    // 字号跟标签一致；先设字号再量高度，否则量到的是上一次的尺寸
     var fs = parseFloat(getComputedStyle(a.el).fontSize)
     bar.style.fontSize = (isFinite(fs) && fs > 8 ? fs : 13) + 'px'
-    // 用 getBoundingClientRect 而不是 offsetWidth：后者会四舍五入成整数，
-    // 每次金额位数变化就能看出 1～2px 的错位。这里取亚像素值，边缘才能真对齐。
-    var br = bar.getBoundingClientRect()
-    var bw = br.width
-    var bh = br.height
-    // 右边缘优先贴输入框（对话框）的右边缘；找不到输入框再退回方法栏容器
-    var right = composerRight() || paneRightFrom(a.el)
-    var x = right - bw
-    if (x < 0) x = 0
-    if (x + bw > window.innerWidth) x = window.innerWidth - bw
-    bar.style.left = x.toFixed(2) + 'px'
+    var bh = bar.getBoundingClientRect().height
+    // 右边缘是锚点：不再「量自己的宽度再算 left」，而是用 right 定位。
+    // 这样金额从 88.15 变到 100.15 时，胶囊自己向左长，右边缘一像素都不动。
+    var base = composerRight() || paneRightFrom(a.el)
+    var vw = document.documentElement.clientWidth || window.innerWidth
+    var inset = vw - base
+    if (inset < 0) inset = 0
+    bar.style.right = inset.toFixed(2) + 'px'
+    bar.style.left = 'auto'
     bar.style.top = Math.max(1, a.rect.top + a.rect.height / 2 - bh / 2).toFixed(2) + 'px'
-    bar.style.right = 'auto'
     bar.style.bottom = 'auto'
   }
 
