@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>strip harness</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #f7f7f8; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; }
+  #app { display: flex; height: 100%; }
+  #side { width: 240px; background: #f2f2f3; border-right: 1px solid #e6e6e8; }
+  #pane { width: 900px; background: #fff; position: relative; }
+  #tabs { display: flex; gap: 22px; padding: 14px 18px 10px; border-bottom: 1px solid #ececee; font-size: 14px; color: #3b4048; }
+  #tabs span.on { color: #0b5fff; border-bottom: 2px solid #0b5fff; padding-bottom: 8px; }
+  #gutter { flex: 1; background: #e9eaec; }
+  #body { padding: 24px 18px; color: #5b6472; font-size: 13px; line-height: 2; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="side"></div>
+  <div id="pane">
+    <div id="tabs"><span class="on">对话</span><span>上下文</span><span>编队</span></div>
+    <div id="body">
+      模拟正文区：这条线右侧就是会话栏的右边界（900 + 240 = 1140px）。<br>
+      胶囊的右边缘应当落在 1140px 处，而不是窗口的 1400px 处。
+    </div>
+  </div>
+  <div id="gutter"></div>
+</div>
+<script>
+  // 假数据：不让它去请求真后端
+  window.__dshStripBuild = ''
+  var FAKE = { at: Date.now(), ok: true, balance: 88.22, todayUsed: 1.42, currency: 'CNY', offPeak: false, source: 'account', build: '' }
+  function FakeXHR() { this.readyState = 0; this.status = 0; this.responseText = ''; }
+  FakeXHR.prototype.open = function () {}
+  FakeXHR.prototype.send = function () {
+    var self = this
+    setTimeout(function () {
+      self.readyState = 4
+      self.status = 200
+      self.responseText = JSON.stringify(FAKE)
+      if (self.onreadystatechange) self.onreadystatechange()
+    }, 10)
+  }
+  window.XMLHttpRequest = FakeXHR
+</script>
+<script src="../assets/strip.js"></script>
+</body>
+</html>

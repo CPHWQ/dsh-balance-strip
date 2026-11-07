@@ -25,9 +25,22 @@
   var BOTTOM = 5
   var RIGHT = 70
 
+  // 界面语言跟随系统/浏览器：zh* 用汉字，其它语言用英文。
+  // 只影响这几个字，跟余额本身无关。
+  var LANG = (function () {
+    var l = ''
+    try {
+      l = (navigator.languages && navigator.languages[0]) || navigator.language || ''
+    } catch (e) {}
+    return /^zh/i.test(String(l)) ? 'zh' : 'en'
+  })()
+  var T = LANG === 'zh'
+    ? { bal: '余额', today: '今日', est: '约', on: '峰', off: '谷', sync: '同步中', retry: '待恢复' }
+    : { bal: 'Balance', today: 'Today', est: '≈', on: 'Peak', off: 'Off-peak', sync: 'Syncing', retry: 'Retrying' }
+
   var dead = false
   var bar = null
-  var dotEl, balEl, usedEl, peakEl, rangeEl, msgEl
+  var dotEl, balEl, usedEl, peakEl, msgEl
   var lastGood = null
   var fails = 0
   var timer = null
@@ -77,16 +90,13 @@
       '#dsh-strip-bar .dshs-v{font-size:1em;font-weight:600;letter-spacing:.01em;',
       'font-variant-numeric:tabular-nums;color:var(--v);}',
       '#dsh-strip-bar .dshs-v.is-used{font-weight:500;color:var(--u);}',
-      '#dsh-strip-bar .dshs-est{font-size:.86em;font-weight:400;color:var(--e);}',
+      '#dsh-strip-bar .dshs-est{font-size:.86em;font-weight:400;color:var(--e);margin-right:-.16em;}',
       '#dsh-strip-bar .dshs-sep{width:1px;height:.88em;border-radius:1px;',
       'background:var(--s);align-self:center;}',
       // 峰 / 谷：常驻，不再自带底色（底色交给整枚胶囊），所以字号可以放大一档
       '#dsh-strip-bar .dshs-peak{font-size:.92em;font-weight:700;letter-spacing:.05em;',
       'color:var(--on-fg);}',
       '#dsh-strip-bar .dshs-peak.is-off{color:var(--off-fg);}',
-      // 时段区间：比徽章再低一档，等宽数字避免刷新时跳动
-      '#dsh-strip-bar .dshs-range{font-size:.86em;font-weight:400;letter-spacing:.01em;',
-      'font-variant-numeric:tabular-nums;color:var(--k);}',
       '#dsh-strip-bar .dshs-dot{width:.3em;height:.3em;border-radius:50%;background:var(--off-fg);',
       'align-self:center;margin-right:-.36em;display:none;}',
       '#dsh-strip-bar.is-warn .dshs-dot{display:block;}',
@@ -109,20 +119,19 @@
     bar.id = 'dsh-strip-bar'
 
     var g1 = make('span', 'dshs-grp')
-    g1.appendChild(make('span', 'dshs-k', '余额'))
+    g1.appendChild(make('span', 'dshs-k', T.bal))
     balEl = make('span', 'dshs-v', '—')
     g1.appendChild(balEl)
 
     var g2 = make('span', 'dshs-grp')
-    g2.appendChild(make('span', 'dshs-k', '今日'))
+    g2.appendChild(make('span', 'dshs-k', T.today))
+    // 「约」在数字前面，紧贴数字：今日 约 ¥1.42
+    g2.appendChild(make('span', 'dshs-est', T.est))
     usedEl = make('span', 'dshs-v is-used', '—')
     g2.appendChild(usedEl)
-    g2.appendChild(make('span', 'dshs-est', '估'))
 
     dotEl = make('span', 'dshs-dot')
-    peakEl = make('span', 'dshs-peak', '峰')
-    // 紧跟徽章的时段区间：谷 00:30–08:30 / 峰 08:30–次日00:30
-    rangeEl = make('span', 'dshs-range', '')
+    peakEl = make('span', 'dshs-peak', T.on)
     msgEl = make('span', 'dshs-msg', '')
 
     bar.appendChild(dotEl)
@@ -130,7 +139,6 @@
     bar.appendChild(make('span', 'dshs-sep'))
     bar.appendChild(g2)
     bar.appendChild(peakEl)
-    bar.appendChild(rangeEl)
     bar.appendChild(msgEl)
     document.body.appendChild(bar)
     syncTheme()
@@ -235,8 +243,7 @@
   }
 
   // 挂在会话顶部那排标签（对话 / 上下文 / 编队）的右侧：
-  // 垂直按标签文字的中线对齐，字号直接取标签的 computed font-size，右边缘留 EDGE。
-  var EDGE = 0
+  // 垂直按标签文字的中线对齐，字号直接取标签的 computed font-size，右边缘贴住正文栏。
 
   function textRect(n) {
     try {
@@ -257,8 +264,8 @@
     while ((n = walker.nextNode()) && guard++ < 40000) {
       var t = n.nodeValue
       if (!t || t.length > 8) continue
-      if (!/^\s*(对话|上下文)\s*$/.test(t)) continue
-      var want = /\s*对话\s*$/.test(t) ? 0 : 1
+      if (!/^\s*(对话|上下文|Chat|Context)\s*$/i.test(t)) continue
+      var want = /^\s*(对话|Chat)\s*$/i.test(t) ? 0 : 1
       var r = textRect(n)
       if (!r || r.width <= 0 || r.height <= 0) continue
       // 只在窗口顶部 260px 内找，避开正文里出现的「对话」二字
@@ -270,25 +277,21 @@
     return best
   }
 
-  // 会话栏的右边界：右侧可能是空着的面板区/留白，窗口右边缘不等于内容右边缘，
-  // 所以从会话正文中间取一点，往上找一个「够宽够高、又没顶到窗口边」的容器，它的右边缘就是那条线。
-  function paneRight() {
-    if (!document.elementFromPoint) return window.innerWidth - EDGE
-    var x = Math.round(window.innerWidth * 0.55)
-    var y = Math.round(window.innerHeight * 0.55)
-    var node = null
-    try {
-      node = document.elementFromPoint(Math.max(1, x), Math.max(1, y))
-    } catch (e) {
-      node = null
-    }
+  // 会话栏的右边界：从标签本身往上找，最宽的那个「没顶满窗口」的祖先，它的右边缘就是正文栏那条线。
+  // 不能用 elementFromPoint 猜：右侧可能压着别的面板/浮层，取到的宽度会把胶囊推到窗口边上去。
+  function paneRightFrom(el) {
+    var best = 0
+    var node = el
     var guard = 0
-    while (node && guard++ < 14) {
+    while (node && node !== document.body && node !== document.documentElement && guard++ < 18) {
       var r = node.getBoundingClientRect()
-      if (r.width > 400 && r.height > 200 && r.right < window.innerWidth - 8) return r.right
+      if (r.width > 380) {
+        if (r.right >= window.innerWidth - 4) break // 已经顶到窗口边，再往上只会更宽
+        if (r.right > best) best = r.right
+      }
       node = node.parentElement
     }
-    return window.innerWidth - EDGE
+    return best || window.innerWidth - 6
   }
 
   function place() {
@@ -307,8 +310,9 @@
     bar.style.fontSize = (isFinite(fs) && fs > 8 ? fs : 13) + 'px'
     var bw = bar.offsetWidth
     var bh = bar.offsetHeight
-    var right = paneRight() - EDGE
-    bar.style.left = Math.max(2, right - bw) + 'px'
+    // 右边缘强制贴住会话栏右边界，EDGE 固定为 0
+    var right = paneRightFrom(a.el)
+    bar.style.left = Math.max(2, Math.min(right, window.innerWidth - 2) - bw) + 'px'
     bar.style.top = Math.max(1, a.rect.top + a.rect.height / 2 - bh / 2) + 'px'
     bar.style.right = 'auto'
     bar.style.bottom = 'auto'
@@ -370,11 +374,10 @@
     usedEl.textContent = src ? money(src.todayUsed) : '—'
 
     var off = !!(data && data.offPeak)
-    peakEl.textContent = off ? '谷' : '峰'
+    peakEl.textContent = off ? T.off : T.on
     peakEl.classList.toggle('is-off', off)
     bar.classList.toggle('is-off', off)
     bar.classList.toggle('is-peak', !off)
-    rangeEl.textContent = off ? '00:30–08:30' : '08:30–次日00:30'
 
     bar.classList.toggle('is-warn', !ok)
     if (ok) {
@@ -382,7 +385,7 @@
       bar.removeAttribute('title')
     } else {
       // 冷启动：只写「同步中」，不把报错怼到标题栏上
-      msgEl.textContent = !src ? (fails < 2 ? '同步中' : '待恢复') : ''
+      msgEl.textContent = !src ? (fails < 2 ? T.sync : T.retry) : ''
       bar.setAttribute('title', 'dsh-balance-strip：' + reason(data && data.error))
     }
     place()
