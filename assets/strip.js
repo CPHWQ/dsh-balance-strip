@@ -172,10 +172,21 @@
     return bar
   }
 
+  // 币种跟着账户走：宿主返回 data.currency，这里换成对应符号；认不出的币种就直接写代码
+  var SYM = {
+    CNY: '¥', RMB: '¥', USD: '$', EUR: '€', GBP: '£', JPY: 'JP¥', HKD: 'HK$',
+    TWD: 'NT$', SGD: 'S$', KRW: '₩', INR: '₹', RUB: '₽', BRL: 'R$', AUD: 'A$',
+    CAD: 'C$', CHF: 'CHF ', MYR: 'RM ', THB: '฿', VND: '₫', PHP: '₱', IDR: 'Rp '
+  }
+  var ZERO_DEC = { JPY: 1, KRW: 1, VND: 1 }
+  var CUR = 'CNY'
+
   function money(v) {
     var n = Number(v)
     if (!isFinite(n)) return '—'
-    return '¥' + n.toFixed(2)
+    var code = String(CUR || 'CNY').toUpperCase()
+    var sym = SYM[code] || code + ' '
+    return sym + n.toFixed(ZERO_DEC[code] ? 0 : 2)
   }
 
   // —— 底色探测 ——
@@ -489,6 +500,7 @@
     }
 
     var src = ok ? data : lastGood
+    if (src && src.currency) CUR = String(src.currency).toUpperCase()
     balEl.textContent = src ? money(src.balance) : '—'
     usedEl.textContent = src ? money(src.todayUsed) : '—'
 
